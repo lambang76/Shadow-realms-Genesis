@@ -1,0 +1,209 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated player profile, Soul Essence currency, talent tree ranks, equipped loadout, and discovered narrative chronicles.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the player." },
+        "displayName": { "type": "string", "description": "Player display name." },
+        "selectedClass": {
+          "type": "string",
+          "enum": ["BLOODBLADE", "NECROMANCER", "STALKER"],
+          "description": "Active gothic character archetype."
+        },
+        "soulEssence": { "type": "integer", "description": "Persistent meta-progression currency." },
+        "highestDepth": { "type": "integer", "description": "Deepest dungeon stage reached." },
+        "totalRuns": { "type": "integer", "description": "Total roguelike runs started." },
+        "totalKills": { "type": "integer", "description": "Total abyssal enemies slain." },
+        "crimsonMightRank": { "type": "integer", "description": "Attack & crit talent branch rank." },
+        "obsidianWardRank": { "type": "integer", "description": "Vitality & armor talent branch rank." },
+        "forbiddenArcanaRank": { "type": "integer", "description": "Cooldown & skill power talent branch rank." },
+        "equippedWeaponId": { "type": "string", "description": "ID of equipped weapon (starter or community mod)." },
+        "equippedRelicId": { "type": "string", "description": "ID of equipped relic (starter or community mod)." },
+        "discoveredChronicles": {
+          "type": "array",
+          "description": "List of discovered branching narrative titles (max 30)."
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "selectedClass",
+        "soulEssence",
+        "highestDepth",
+        "totalRuns",
+        "totalKills",
+        "crimsonMightRank",
+        "obsidianWardRank",
+        "forbiddenArcanaRank",
+        "equippedWeaponId",
+        "equippedRelicId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CommunityMod": {
+      "title": "CommunityMod",
+      "description": "Player-created weapon, relic, or game ruleset mod stored in the Community Grimoire Vault.",
+      "type": "object",
+      "properties": {
+        "authorUid": { "type": "string", "description": "UID of the mod creator." },
+        "authorName": { "type": "string", "description": "Display name of the creator." },
+        "modType": {
+          "type": "string",
+          "enum": ["WEAPON", "RELIC", "RULESET"],
+          "description": "Category of custom mod."
+        },
+        "name": { "type": "string", "description": "Name of the weapon, relic, or ruleset." },
+        "loreEn": { "type": "string", "description": "English gothic lore description." },
+        "loreId": { "type": "string", "description": "Indonesian gothic lore description." },
+        "effectTag": { "type": "string", "description": "Declarative effect hook (e.g. VAMPIRIC, SOULBURN, FROSTBITE, VOID_CRIT, IRONMAN)." },
+        "powerValue": { "type": "integer", "description": "Primary stat modifier (damage, bonus pct, or enemy HP scale)." },
+        "speedValue": { "type": "integer", "description": "Secondary stat modifier (attack speed pct, cooldown reduction, or player speed scale)." },
+        "accentHex": { "type": "string", "description": "Hex color for trail/aura rendering." },
+        "isPublished": { "type": "boolean", "description": "Whether the mod is visible in the public Community Vault." },
+        "upvotes": { "type": "integer", "description": "Community upvote count." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "authorUid",
+        "authorName",
+        "modType",
+        "name",
+        "loreEn",
+        "loreId",
+        "effectTag",
+        "powerValue",
+        "speedValue",
+        "accentHex",
+        "isPublished",
+        "upvotes",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RaidLobby": {
+      "title": "RaidLobby",
+      "description": "Online Co-op Dungeon Raid lobby and matchmaking room.",
+      "type": "object",
+      "properties": {
+        "hostUid": { "type": "string", "description": "UID of the lobby host." },
+        "hostName": { "type": "string", "description": "Display name of the host." },
+        "inviteCode": { "type": "string", "description": "Short alphanumeric invite code matching the lobby ID." },
+        "isPublic": { "type": "boolean", "description": "True if open to global matchmaking." },
+        "status": {
+          "type": "string",
+          "enum": ["WAITING", "GENERATING", "IN_GAME", "COMPLETED"],
+          "description": "Lifecycle status of the raid lobby."
+        },
+        "stageDepth": { "type": "integer", "description": "Current abyssal floor depth." },
+        "stageTitle": { "type": "string", "description": "Active AI-generated stage title." },
+        "biomeTheme": { "type": "string", "description": "Active stage lighting/biome theme." },
+        "stageData": { "type": "object", "description": "Native map storing shared AI stage layout and enemy blueprint." },
+        "activeModIds": { "type": "array", "description": "Up to 5 active community mod IDs." },
+        "memberUids": { "type": "array", "description": "List of 1 to 4 joined player UIDs." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on creation." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "hostUid",
+        "hostName",
+        "inviteCode",
+        "isPublic",
+        "status",
+        "stageDepth",
+        "stageTitle",
+        "biomeTheme",
+        "activeModIds",
+        "memberUids",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "RaidPlayerState": {
+      "title": "RaidPlayerState",
+      "description": "Live synchronized co-op player state inside a raid lobby.",
+      "type": "object",
+      "properties": {
+        "playerId": { "type": "string", "description": "Player UID." },
+        "displayName": { "type": "string", "description": "Player display name." },
+        "archetype": { "type": "string", "description": "Selected class archetype." },
+        "posX": { "type": "number", "description": "Normalized arena X position." },
+        "posY": { "type": "number", "description": "Normalized arena Y position." },
+        "facingAngle": { "type": "number", "description": "Facing angle in radians." },
+        "hp": { "type": "integer", "description": "Current health points." },
+        "maxHp": { "type": "integer", "description": "Maximum health points." },
+        "isAttacking": { "type": "boolean", "description": "Attack animation flag." },
+        "pingText": { "type": "string", "description": "Latest tactical co-op ping." },
+        "memberUids": { "type": "array", "description": "Denormalized party UIDs for fast rule checks." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "playerId",
+        "displayName",
+        "archetype",
+        "posX",
+        "posY",
+        "facingAngle",
+        "hp",
+        "maxHp",
+        "isAttacking",
+        "memberUids",
+        "updatedAt"
+      ]
+    },
+    "RaidEnemyState": {
+      "title": "RaidEnemyState",
+      "description": "Live synchronized shared enemy/boss HP state inside a co-op raid.",
+      "type": "object",
+      "properties": {
+        "enemyId": { "type": "string", "description": "Enemy identifier." },
+        "name": { "type": "string", "description": "Enemy name." },
+        "hp": { "type": "integer", "description": "Current shared enemy HP." },
+        "maxHp": { "type": "integer", "description": "Maximum enemy HP." },
+        "posX": { "type": "number", "description": "Normalized X position." },
+        "posY": { "type": "number", "description": "Normalized Y position." },
+        "isBoss": { "type": "boolean", "description": "Whether enemy is a floor boss." },
+        "memberUids": { "type": "array", "description": "Denormalized party UIDs for fast rule checks." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "enemyId",
+        "name",
+        "hp",
+        "maxHp",
+        "posX",
+        "posY",
+        "isBoss",
+        "memberUids",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Per-user progression, talent ranks, and chronicle unlocks."
+    },
+    "/community_mods/{modId}": {
+      "schema": { "$ref": "#/entities/CommunityMod" },
+      "description": "Custom weapons, relics, and game rulesets created by players."
+    },
+    "/raid_lobbies/{lobbyId}": {
+      "schema": { "$ref": "#/entities/RaidLobby" },
+      "description": "Online Co-op Dungeon Raid lobbies and global matchmaking rooms."
+    },
+    "/raid_lobbies/{lobbyId}/players/{playerId}": {
+      "schema": { "$ref": "#/entities/RaidPlayerState" },
+      "description": "Real-time player combat telemetry within a raid lobby."
+    },
+    "/raid_lobbies/{lobbyId}/enemies/{enemyId}": {
+      "schema": { "$ref": "#/entities/RaidEnemyState" },
+      "description": "Shared enemy and boss health state within a raid lobby."
+    }
+  }
+}

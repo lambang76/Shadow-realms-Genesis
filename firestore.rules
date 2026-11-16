@@ -1,0 +1,356 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HARDENED HELPERS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- VALIDATION BLUEPRINTS ---
+
+    function isValidUserProfile(data) {
+      return data.userId is string && data.userId == request.auth.uid && data.userId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+             data.selectedClass in ['BLOODBLADE', 'NECROMANCER', 'STALKER'] &&
+             data.soulEssence is int && data.soulEssence >= 0 && data.soulEssence <= 9999999 &&
+             data.highestDepth is int && data.highestDepth >= 0 && data.highestDepth <= 9999 &&
+             data.totalRuns is int && data.totalRuns >= 0 && data.totalRuns <= 999999 &&
+             data.totalKills is int && data.totalKills >= 0 && data.totalKills <= 9999999 &&
+             data.crimsonMightRank is int && data.crimsonMightRank >= 0 && data.crimsonMightRank <= 10 &&
+             data.obsidianWardRank is int && data.obsidianWardRank >= 0 && data.obsidianWardRank <= 10 &&
+             data.forbiddenArcanaRank is int && data.forbiddenArcanaRank >= 0 && data.forbiddenArcanaRank <= 10 &&
+             data.equippedWeaponId is string && data.equippedWeaponId.size() >= 1 && data.equippedWeaponId.size() <= 128 &&
+             data.equippedRelicId is string && data.equippedRelicId.size() >= 1 && data.equippedRelicId.size() <= 128 &&
+             (!('discoveredChronicles' in data) || (
+               data.discoveredChronicles is list &&
+               data.discoveredChronicles.size() <= 30 &&
+               (data.discoveredChronicles.size() == 0 || data.discoveredChronicles[0] is string)
+             ));
+    }
+
+    function isValidCommunityMod(data) {
+      return data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128 &&
+             data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 40 &&
+             data.modType in ['WEAPON', 'RELIC', 'RULESET'] &&
+             data.name is string && data.name.size() >= 2 && data.name.size() <= 50 &&
+             data.loreEn is string && data.loreEn.size() >= 1 && data.loreEn.size() <= 400 &&
+             data.loreId is string && data.loreId.size() >= 1 && data.loreId.size() <= 400 &&
+             data.effectTag is string && data.effectTag.size() >= 1 && data.effectTag.size() <= 40 &&
+             data.powerValue is int && data.powerValue >= 1 && data.powerValue <= 500 &&
+             data.speedValue is int && data.speedValue >= 1 && data.speedValue <= 300 &&
+             data.accentHex is string && data.accentHex.size() >= 4 && data.accentHex.size() <= 12 &&
+             data.isPublished is bool &&
+             data.upvotes is int && data.upvotes >= 0 && data.upvotes <= 9999999;
+    }
+
+    function isValidRaidLobby(data) {
+      return data.hostUid is string && data.hostUid.size() >= 1 && data.hostUid.size() <= 128 &&
+             data.hostName is string && data.hostName.size() >= 1 && data.hostName.size() <= 40 &&
+             data.inviteCode is string && data.inviteCode.size() >= 4 && data.inviteCode.size() <= 12 &&
+             data.isPublic is bool &&
+             data.status in ['WAITING', 'GENERATING', 'IN_GAME', 'COMPLETED'] &&
+             data.stageDepth is int && data.stageDepth >= 1 && data.stageDepth <= 999 &&
+             data.stageTitle is string && data.stageTitle.size() >= 1 && data.stageTitle.size() <= 100 &&
+             data.biomeTheme is string && data.biomeTheme.size() >= 1 && data.biomeTheme.size() <= 50 &&
+             (!('stageData' in data) || data.stageData is map) &&
+             data.activeModIds is list && data.activeModIds.size() <= 5 &&
+             (data.activeModIds.size() == 0 || data.activeModIds[0] is string) &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 4 &&
+             data.memberUids[0] is string;
+    }
+
+    function isValidRaidPlayerState(data) {
+      return data.playerId is string && data.playerId.size() >= 1 && data.playerId.size() <= 128 &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 40 &&
+             data.archetype in ['BLOODBLADE', 'NECROMANCER', 'STALKER'] &&
+             data.posX is number && data.posX >= -100.0 && data.posX <= 5000.0 &&
+             data.posY is number && data.posY >= -100.0 && data.posY <= 5000.0 &&
+             data.facingAngle is number &&
+             data.hp is int && data.hp >= 0 && data.hp <= 99999 &&
+             data.maxHp is int && data.maxHp >= 1 && data.maxHp <= 99999 &&
+             data.isAttacking is bool &&
+             (!('pingText' in data) || (data.pingText is string && data.pingText.size() <= 60)) &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 4 &&
+             data.memberUids[0] is string;
+    }
+
+    function isValidRaidEnemyState(data) {
+      return data.enemyId is string && data.enemyId.size() >= 1 && data.enemyId.size() <= 128 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+             data.hp is int && data.hp >= 0 && data.hp <= 999999 &&
+             data.maxHp is int && data.maxHp >= 1 && data.maxHp <= 999999 &&
+             data.posX is number && data.posX >= -100.0 && data.posX <= 5000.0 &&
+             data.posY is number && data.posY >= -100.0 && data.posY <= 5000.0 &&
+             data.isBoss is bool &&
+             data.memberUids is list && data.memberUids.size() >= 1 && data.memberUids.size() <= 4 &&
+             data.memberUids[0] is string;
+    }
+
+    // --- COLLECTION RULES ---
+
+    // 1. User Profiles (Strictly owner-isolated)
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'selectedClass', 'soulEssence',
+                         'highestDepth', 'totalRuns', 'totalKills',
+                         'crimsonMightRank', 'obsidianWardRank', 'forbiddenArcanaRank',
+                         'equippedWeaponId', 'equippedRelicId', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'selectedClass', 'soulEssence',
+                         'highestDepth', 'totalRuns', 'totalKills',
+                         'crimsonMightRank', 'obsidianWardRank', 'forbiddenArcanaRank',
+                         'equippedWeaponId', 'equippedRelicId', 'discoveredChronicles',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       request.auth.uid == userId &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'selectedClass', 'soulEssence', 'highestDepth',
+                         'totalRuns', 'totalKills', 'crimsonMightRank', 'obsidianWardRank',
+                         'forbiddenArcanaRank', 'equippedWeaponId', 'equippedRelicId',
+                         'discoveredChronicles', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // 2. Community Mod Vault (Weapons, Relics, Rulesets)
+    match /community_mods/{modId} {
+      allow get: if isSignedIn() && isValidId(modId) &&
+                    (existing().isPublished == true || existing().authorUid == request.auth.uid);
+
+      // Client queries MUST filter by isPublished == true or authorUid == uid
+      allow list: if isSignedIn() &&
+                     (existing().isPublished == true || existing().authorUid == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+                       isValidId(modId) &&
+                       incoming().authorUid == request.auth.uid &&
+                       incoming().upvotes == 0 &&
+                       incoming().keys().hasAll([
+                         'authorUid', 'authorName', 'modType', 'name', 'loreEn', 'loreId',
+                         'effectTag', 'powerValue', 'speedValue', 'accentHex',
+                         'isPublished', 'upvotes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'authorUid', 'authorName', 'modType', 'name', 'loreEn', 'loreId',
+                         'effectTag', 'powerValue', 'speedValue', 'accentHex',
+                         'isPublished', 'upvotes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidCommunityMod(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(modId) &&
+                       isValidCommunityMod(incoming()) &&
+                       incoming().authorUid == existing().authorUid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         // Tier 1: Author edits mod attributes
+                         (
+                           existing().authorUid == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'modType', 'name', 'loreEn', 'loreId', 'effectTag',
+                             'powerValue', 'speedValue', 'accentHex', 'isPublished', 'updatedAt'
+                           ])
+                         ) ||
+                         // Tier 2: Any signed-in player upvotes a published mod by +1
+                         (
+                           existing().isPublished == true &&
+                           incoming().upvotes == existing().upvotes + 1 &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(modId) && existing().authorUid == request.auth.uid;
+    }
+
+    // 3. Co-op Raid Lobbies & Global Matchmaking
+    match /raid_lobbies/{lobbyId} {
+      allow get: if isSignedIn() && isValidId(lobbyId) &&
+                    (request.auth.uid in existing().memberUids || existing().status == 'WAITING');
+
+      // Client queries MUST filter by memberUids array-contains uid OR (isPublic == true && status == 'WAITING')
+      allow list: if isSignedIn() &&
+                     (request.auth.uid in existing().memberUids ||
+                      (existing().isPublic == true && existing().status == 'WAITING'));
+
+      allow create: if isSignedIn() &&
+                       isValidId(lobbyId) &&
+                       incoming().hostUid == request.auth.uid &&
+                       incoming().status == 'WAITING' &&
+                       request.auth.uid in incoming().memberUids &&
+                       incoming().memberUids.size() == 1 &&
+                       incoming().keys().hasAll([
+                         'hostUid', 'hostName', 'inviteCode', 'isPublic', 'status',
+                         'stageDepth', 'stageTitle', 'biomeTheme', 'activeModIds',
+                         'memberUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'hostUid', 'hostName', 'inviteCode', 'isPublic', 'status',
+                         'stageDepth', 'stageTitle', 'biomeTheme', 'stageData',
+                         'activeModIds', 'memberUids', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidRaidLobby(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(lobbyId) &&
+                       existing().status != 'COMPLETED' &&
+                       isValidRaidLobby(incoming()) &&
+                       incoming().hostUid == existing().hostUid &&
+                       incoming().hostName == existing().hostName &&
+                       incoming().inviteCode == existing().inviteCode &&
+                       incoming().isPublic == existing().isPublic &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       (
+                         // Action 1: Host manages raid status, stage blueprint, or party
+                         (
+                           existing().hostUid == request.auth.uid &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'status', 'stageDepth', 'stageTitle', 'biomeTheme',
+                             'stageData', 'activeModIds', 'memberUids', 'updatedAt'
+                           ])
+                         ) ||
+                         // Action 2: New player joins an open WAITING lobby (< 4 members)
+                         (
+                           existing().status == 'WAITING' &&
+                           !(request.auth.uid in existing().memberUids) &&
+                           existing().memberUids.size() < 4 &&
+                           request.auth.uid in incoming().memberUids &&
+                           incoming().memberUids.hasAll(existing().memberUids) &&
+                           incoming().memberUids.size() == existing().memberUids.size() + 1 &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'updatedAt'])
+                         ) ||
+                         // Action 3: Member leaves lobby (cannot remove host)
+                         (
+                           request.auth.uid in existing().memberUids &&
+                           request.auth.uid != existing().hostUid &&
+                           !(request.auth.uid in incoming().memberUids) &&
+                           incoming().memberUids.size() == existing().memberUids.size() - 1 &&
+                           existing().memberUids.hasAll(incoming().memberUids) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly(['memberUids', 'updatedAt'])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(lobbyId) && existing().hostUid == request.auth.uid;
+
+      // 3a. Live Raid Player Telemetry (denormalized memberUids for O(1) list checks)
+      match /players/{playerId} {
+        allow get: if isSignedIn() && isValidId(lobbyId) && isValidId(playerId) &&
+                      request.auth.uid in existing().memberUids;
+        allow list: if isSignedIn() && request.auth.uid in existing().memberUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(lobbyId) && isValidId(playerId) &&
+                         request.auth.uid == playerId &&
+                         incoming().playerId == request.auth.uid &&
+                         request.auth.uid in incoming().memberUids &&
+                         incoming().keys().hasAll([
+                           'playerId', 'displayName', 'archetype', 'posX', 'posY',
+                           'facingAngle', 'hp', 'maxHp', 'isAttacking', 'memberUids', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'playerId', 'displayName', 'archetype', 'posX', 'posY',
+                           'facingAngle', 'hp', 'maxHp', 'isAttacking', 'pingText',
+                           'memberUids', 'updatedAt'
+                         ]) &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidRaidPlayerState(incoming()) &&
+                         exists(/databases/$(database)/documents/raid_lobbies/$(lobbyId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/raid_lobbies/$(lobbyId)).data.memberUids;
+
+        allow update: if isSignedIn() &&
+                         isValidId(lobbyId) && isValidId(playerId) &&
+                         request.auth.uid == playerId &&
+                         request.auth.uid in existing().memberUids &&
+                         request.auth.uid in incoming().memberUids &&
+                         incoming().playerId == existing().playerId &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidRaidPlayerState(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'displayName', 'archetype', 'posX', 'posY', 'facingAngle',
+                           'hp', 'maxHp', 'isAttacking', 'pingText', 'memberUids', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(lobbyId) && isValidId(playerId) &&
+                         request.auth.uid == playerId;
+      }
+
+      // 3b. Shared Raid Enemies & Boss HP (denormalized memberUids)
+      match /enemies/{enemyId} {
+        allow get: if isSignedIn() && isValidId(lobbyId) && isValidId(enemyId) &&
+                      request.auth.uid in existing().memberUids;
+        allow list: if isSignedIn() && request.auth.uid in existing().memberUids;
+
+        allow create: if isSignedIn() &&
+                         isValidId(lobbyId) && isValidId(enemyId) &&
+                         request.auth.uid in incoming().memberUids &&
+                         incoming().keys().hasAll([
+                           'enemyId', 'name', 'hp', 'maxHp', 'posX', 'posY',
+                           'isBoss', 'memberUids', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'enemyId', 'name', 'hp', 'maxHp', 'posX', 'posY',
+                           'isBoss', 'memberUids', 'updatedAt'
+                         ]) &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidRaidEnemyState(incoming()) &&
+                         exists(/databases/$(database)/documents/raid_lobbies/$(lobbyId)) &&
+                         request.auth.uid in get(/databases/$(database)/documents/raid_lobbies/$(lobbyId)).data.memberUids;
+
+        allow update: if isSignedIn() &&
+                         isValidId(lobbyId) && isValidId(enemyId) &&
+                         request.auth.uid in existing().memberUids &&
+                         request.auth.uid in incoming().memberUids &&
+                         incoming().enemyId == existing().enemyId &&
+                         incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                         isValidRaidEnemyState(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'hp', 'posX', 'posY', 'memberUids', 'updatedAt'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(lobbyId) && isValidId(enemyId) &&
+                         request.auth.uid in existing().memberUids;
+      }
+    }
+  }
+}

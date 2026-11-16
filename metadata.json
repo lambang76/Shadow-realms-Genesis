@@ -1,0 +1,6 @@
+{
+  "name": "Nocturne Abyss",
+  "description": "Gothic dark fantasy top-down action roguelike with AI-generated stages, branching narrative, character progression, modding studio, and online co-op matchmaking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
