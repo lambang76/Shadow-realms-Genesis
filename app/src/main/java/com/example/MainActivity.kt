@@ -281,7 +281,9 @@ private fun AuthenticatedSanctumShell(
                 onEnterPortal = { runVm.onEnterPortal() },
                 onTogglePause = { runVm.togglePause() },
                 onAbandon = { runVm.abandonRun() },
-                onSendPing = { ping -> runVm.sendCoopPing(ping) }
+                onSendPing = { ping -> runVm.sendCoopPing(ping) },
+                onSwapWeapon = { runVm.onSwapWeaponPressed() },
+                language = settings.language
             )
             return
         }
@@ -364,6 +366,7 @@ private fun AuthenticatedSanctumShell(
                         strings = strings,
                         onStartSoloRun = { profile ->
                             val weapon = availableWeapons.firstOrNull { it.id == profile.equippedWeaponId }
+                            val secWeapon = availableWeapons.firstOrNull { it.id == settings.secondaryWeaponId }
                             val relic = availableRelics.firstOrNull { it.id == profile.equippedRelicId }
                             runVm.startRun(
                                 profile = profile,
@@ -371,7 +374,10 @@ private fun AuthenticatedSanctumShell(
                                 equippedRelic = relic,
                                 activeRulesets = activeRulesets,
                                 language = settings.language,
-                                coopLobby = null
+                                coopLobby = null,
+                                secondaryWeapon = secWeapon,
+                                skill1Id = settings.skill1Id,
+                                skill2Id = settings.skill2Id
                             )
                         },
                         onGlobalMatchmaking = { name -> sanctumVm.findGlobalMatch(name) },
@@ -379,6 +385,7 @@ private fun AuthenticatedSanctumShell(
                         onJoinByCode = { code -> sanctumVm.joinLobbyByCode(code) },
                         onLaunchCoopRaid = { profile, lobby ->
                             val weapon = availableWeapons.firstOrNull { it.id == profile.equippedWeaponId }
+                            val secWeapon = availableWeapons.firstOrNull { it.id == settings.secondaryWeaponId }
                             val relic = availableRelics.firstOrNull { it.id == profile.equippedRelicId }
                             runVm.startRun(
                                 profile = profile,
@@ -386,10 +393,25 @@ private fun AuthenticatedSanctumShell(
                                 equippedRelic = relic,
                                 activeRulesets = activeRulesets,
                                 language = settings.language,
-                                coopLobby = lobby
+                                coopLobby = lobby,
+                                secondaryWeapon = secWeapon,
+                                skill1Id = settings.skill1Id,
+                                skill2Id = settings.skill2Id
                             )
                         },
-                        onLeaveLobby = { sanctumVm.leaveActiveLobby() }
+                        onLeaveLobby = { sanctumVm.leaveActiveLobby() },
+                        availableWeapons = availableWeapons,
+                        secondaryWeaponId = settings.secondaryWeaponId,
+                        skill1Id = settings.skill1Id,
+                        skill2Id = settings.skill2Id,
+                        language = settings.language,
+                        onSelectPrimaryWeapon = { wId ->
+                            val curRelic = (profileState as? UiState.Success)?.data?.equippedRelicId ?: "starter_ash_signet"
+                            sanctumVm.equipLoadout(wId, curRelic)
+                        },
+                        onSelectSecondaryWeapon = { wId -> scope.launch { prefsRepo.setSecondaryWeaponId(wId) } },
+                        onSelectSkill1 = { sId -> scope.launch { prefsRepo.setSkill1Id(sId) } },
+                        onSelectSkill2 = { sId -> scope.launch { prefsRepo.setSkill2Id(sId) } }
                     )
 
                     1 -> SoulAltarScreen(

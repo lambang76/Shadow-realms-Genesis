@@ -7,6 +7,7 @@ import com.example.data.model.EnemyBlueprint
 import com.example.data.model.GeneratedStage
 import com.example.data.model.HeroArchetype
 import com.example.data.model.NarrativeChoice
+import com.example.data.model.SkillDefinition
 import com.example.data.model.StageObstacle
 
 object GameCatalog {
@@ -53,6 +54,34 @@ object GameCatalog {
             speedValue = 145L,
             accentHex = "#D4A359",
             isPublished = true
+        ),
+        CommunityMod(
+            id = "starter_abyssal_scythe",
+            authorUid = "system",
+            authorName = "Sanctum",
+            modType = "WEAPON",
+            name = "Abyssal Crescent Scythe",
+            loreEn = "Sweeps a massive 160-degree reaping arc that pulls Soul Orbs and chills prey.",
+            loreId = "Menebas lengkungan sabit luas 160 derajat yang menarik Orb Jiwa dan memperlambat musuh.",
+            effectTag = "REAPING_CLEAVE",
+            powerValue = 32L,
+            speedValue = 92L,
+            accentHex = "#B368E8",
+            isPublished = true
+        ),
+        CommunityMod(
+            id = "starter_bell_hammer",
+            authorUid = "system",
+            authorName = "Sanctum",
+            modType = "WEAPON",
+            name = "Cathedral Bell-Hammer",
+            loreEn = "Crushes stone and bone with seismic golden shockwaves that briefly stun enemies.",
+            loreId = "Menghancurkan batu dan tulang dengan gelombang kejut emas yang memingsankan musuh.",
+            effectTag = "THUNDER_SMITE",
+            powerValue = 38L,
+            speedValue = 82L,
+            accentHex = "#F0C674",
+            isPublished = true
         )
     )
 
@@ -84,8 +113,91 @@ object GameCatalog {
             speedValue = 100L,
             accentHex = "#4EA8A8",
             isPublished = true
+        ),
+        CommunityMod(
+            id = "starter_shadow_veil",
+            authorUid = "system",
+            authorName = "Sanctum",
+            modType = "RELIC",
+            name = "Veil of Wraiths",
+            loreEn = "Extends dash invulnerability and grants +12% movement swiftness.",
+            loreId = "Memperpanjang kekebalan saat menghindar dan menambah +12% kecepatan gerak.",
+            effectTag = "SHADOW_HASTE",
+            powerValue = 22L,
+            speedValue = 112L,
+            accentHex = "#B368E8",
+            isPublished = true
         )
     )
+
+    val availableSkill1: List<SkillDefinition> = listOf(
+        SkillDefinition(
+            id = "skill1_crimson_cleave",
+            slot = 1,
+            nameId = "Tebasan Darah",
+            nameEn = "Crimson Cleave",
+            descId = "Gelombang tebasan merah 360° yang menyerap sedikit HP.",
+            descEn = "360° crimson shockwave slash that restores a sliver of HP.",
+            accentHex = "#D94356",
+            cooldownSec = 3.8f
+        ),
+        SkillDefinition(
+            id = "skill1_soul_barrage",
+            slot = 1,
+            nameId = "Rentetan Roh",
+            nameEn = "Soul Barrage",
+            descId = "Menembakkan 7 bola api roh ke arah musuh terdekat.",
+            descEn = "Fires a 7-bolt fan of spectral bolts toward nearby foes.",
+            accentHex = "#4EA8A8",
+            cooldownSec = 4.0f
+        ),
+        SkillDefinition(
+            id = "skill1_phantom_ring",
+            slot = 1,
+            nameId = "Cincin Belati",
+            nameEn = "Phantom Ring",
+            descId = "Melepas 10 belati bayangan melingkar + lonjakan kecepatan singkat.",
+            descEn = "Unleashes a 10-dagger ring burst + brief shadow speed surge.",
+            accentHex = "#D4A359",
+            cooldownSec = 3.5f
+        )
+    )
+
+    val availableSkill2: List<SkillDefinition> = listOf(
+        SkillDefinition(
+            id = "skill2_judgement",
+            slot = 2,
+            nameId = "Penghakiman Suci",
+            nameEn = "Cathedral Judgement",
+            descId = "Ledakan sigil emas raksasa yang memingsankan musuh & memulihkan 12% HP.",
+            descEn = "Massive golden sigil blast that stuns foes & heals 12% HP.",
+            accentHex = "#F0C674",
+            cooldownSec = 7.5f
+        ),
+        SkillDefinition(
+            id = "skill2_abyssal_vortex",
+            slot = 2,
+            nameId = "Pusaran Jurang",
+            nameEn = "Abyssal Vortex",
+            descId = "Menarik semua musuh ke pusat sigil lalu meledakkan kerusakan kritikal ungu.",
+            descEn = "Pulls enemies inward into a collapsing void nova with crit burst.",
+            accentHex = "#B368E8",
+            cooldownSec = 7.0f
+        ),
+        SkillDefinition(
+            id = "skill2_blood_eclipse",
+            slot = 2,
+            nameId = "Gerhana Darah",
+            nameEn = "Blood Eclipse",
+            descId = "Memberi kebal sementara + badai darah radius luas dengan lifesteal besar.",
+            descEn = "Grants brief invulnerability + wide blood storm with heavy lifesteal.",
+            accentHex = "#9E2A3B",
+            cooldownSec = 8.0f
+        )
+    )
+
+    fun skillById(id: String): SkillDefinition =
+        (availableSkill1 + availableSkill2).firstOrNull { it.id == id } ?: availableSkill1.first()
 
     fun classDisplayName(archetype: HeroArchetype, lang: AppLanguage): String = when (archetype) {
         HeroArchetype.BLOODBLADE -> if (lang == AppLanguage.INDONESIAN) "Ksatria Pedang Darah" else "Bloodblade Knight"
@@ -113,16 +225,40 @@ object GameCatalog {
 
     fun fallbackStage(depth: Int, lang: AppLanguage): GeneratedStage {
         val isBossFloor = depth % 3 == 0
+        val biomes = listOf("CRIMSON_CRYPT", "BONE_CATHEDRAL", "VOID_SANCTUM", "ASHEN_OSSUARY")
+        val biome = if (isBossFloor) "CRIMSON_CRYPT" else biomes[(depth - 1) % biomes.size]
+        val ambientHex = when (biome) {
+            "VOID_SANCTUM" -> "#100E1B"
+            "BONE_CATHEDRAL" -> "#15141C"
+            "ASHEN_OSSUARY" -> "#171316"
+            else -> "#181016"
+        }
+        val torchHex = when (biome) {
+            "VOID_SANCTUM" -> "#4EA8A8"
+            "CRIMSON_CRYPT" -> "#E06D44"
+            else -> "#D4A359"
+        }
         val title = if (lang == AppLanguage.INDONESIAN) {
-            if (isBossFloor) "Tahta Abu: Lantai $depth" else "Katedral Bayangan: Lantai $depth"
+            when {
+                isBossFloor -> "Tahta Abu: Lantai $depth"
+                biome == "VOID_SANCTUM" -> "Suaka Kehampaan: Lantai $depth"
+                biome == "ASHEN_OSSUARY" -> "Ruang Tulang Terbakar: Lantai $depth"
+                else -> "Katedral Bayangan: Lantai $depth"
+            }
         } else {
-            if (isBossFloor) "Throne of Ash: Floor $depth" else "Cathedral of Shadows: Floor $depth"
+            when {
+                isBossFloor -> "Throne of Ash: Floor $depth"
+                biome == "VOID_SANCTUM" -> "Void Sanctum: Floor $depth"
+                biome == "ASHEN_OSSUARY" -> "Ashen Ossuary: Floor $depth"
+                else -> "Cathedral of Shadows: Floor $depth"
+            }
         }
         val whisper = if (lang == AppLanguage.INDONESIAN) {
             "Obor berkedip di antara pilar batu yang meneteskan darah beku."
         } else {
             "Torches sputter between stone pillars weeping frozen blood."
         }
+        val extraCount = ((depth - 1) / 2).coerceAtMost(2)
         val enemies = buildList {
             add(
                 EnemyBlueprint(
@@ -133,7 +269,7 @@ object GameCatalog {
                     damage = 12 + depth * 3,
                     speed = 115f + depth * 4f,
                     radius = 24f,
-                    spawnXRatio = 0.25f,
+                    spawnXRatio = 0.22f,
                     spawnYRatio = 0.22f,
                     tintHex = "#9E2A3B"
                 )
@@ -147,7 +283,7 @@ object GameCatalog {
                     damage = 14 + depth * 3,
                     speed = 88f,
                     radius = 22f,
-                    spawnXRatio = 0.76f,
+                    spawnXRatio = 0.78f,
                     spawnYRatio = 0.24f,
                     tintHex = "#4EA8A8"
                 )
@@ -166,16 +302,33 @@ object GameCatalog {
                     tintHex = "#D4A359"
                 )
             )
+            for (k in 0 until extraCount) {
+                val beh = if (k % 2 == 0) "STALKER" else "CASTER"
+                add(
+                    EnemyBlueprint(
+                        id = "e_${depth}_extra_$k",
+                        name = if (lang == AppLanguage.INDONESIAN) "Bayangan Terkutuk" else "Cursed Shade",
+                        behavior = beh,
+                        maxHp = 48 + depth * 15,
+                        damage = 12 + depth * 2,
+                        speed = 125f + depth * 3f,
+                        radius = 20f,
+                        spawnXRatio = if (k % 2 == 0) 0.18f else 0.82f,
+                        spawnYRatio = 0.34f,
+                        tintHex = if (beh == "CASTER") "#4EA8A8" else "#B368E8"
+                    )
+                )
+            }
             if (isBossFloor) {
                 add(
                     EnemyBlueprint(
                         id = "boss_$depth",
                         name = if (lang == AppLanguage.INDONESIAN) "Uskup Terkutuk Malakor" else "Malakor, Fallen Prelate",
                         behavior = "BOSS_WARDEN",
-                        maxHp = 240 + depth * 65,
+                        maxHp = 260 + depth * 65,
                         damage = 22 + depth * 4,
                         speed = 105f,
-                        radius = 38f,
+                        radius = 40f,
                         spawnXRatio = 0.5f,
                         spawnYRatio = 0.28f,
                         tintHex = "#D94356"
@@ -183,19 +336,35 @@ object GameCatalog {
                 )
             }
         }
+        val obstacles = when (depth % 3) {
+            1 -> listOf(
+                StageObstacle(0.26f, 0.42f, 34f, "PILLAR"),
+                StageObstacle(0.74f, 0.42f, 34f, "PILLAR"),
+                StageObstacle(0.50f, 0.56f, 28f, "ALTAR"),
+                StageObstacle(0.26f, 0.64f, 24f, "BRAZIER"),
+                StageObstacle(0.74f, 0.64f, 24f, "BRAZIER")
+            )
+            2 -> listOf(
+                StageObstacle(0.32f, 0.36f, 30f, "STATUE"),
+                StageObstacle(0.68f, 0.36f, 30f, "STATUE"),
+                StageObstacle(0.32f, 0.64f, 26f, "BRAZIER"),
+                StageObstacle(0.68f, 0.64f, 26f, "BRAZIER")
+            )
+            else -> listOf(
+                StageObstacle(0.22f, 0.48f, 34f, "PILLAR"),
+                StageObstacle(0.78f, 0.48f, 34f, "PILLAR"),
+                StageObstacle(0.50f, 0.42f, 28f, "BRAZIER")
+            )
+        }
         return GeneratedStage(
             depth = depth,
             title = title,
             omenWhisper = whisper,
-            biomeTheme = if (isBossFloor) "CRIMSON_CRYPT" else "BONE_CATHEDRAL",
-            ambientColorHex = "#14121A",
-            torchColorHex = "#D4A359",
+            biomeTheme = biome,
+            ambientColorHex = ambientHex,
+            torchColorHex = torchHex,
             fogIntensity = 0.42f,
-            obstacles = listOf(
-                StageObstacle(0.28f, 0.42f, 34f, "PILLAR"),
-                StageObstacle(0.72f, 0.42f, 34f, "PILLAR"),
-                StageObstacle(0.50f, 0.58f, 28f, "ALTAR")
-            ),
+            obstacles = obstacles,
             enemies = enemies
         )
     }

@@ -171,3 +171,14 @@ data class BranchingNarrativeEvent(
     val storyText: String,
     val choices: List<NarrativeChoice>
 )
+
+data class SkillDefinition(
+    val id: String,
+    val slot: Int,
+    val nameId: String,
+    val nameEn: String,
+    val descId: String,
+    val descEn: String,
+    val accentHex: String,
+    val cooldownSec: Float
+)

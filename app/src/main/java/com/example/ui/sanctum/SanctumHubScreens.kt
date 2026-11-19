@@ -32,12 +32,15 @@ import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -82,9 +85,19 @@ fun DescendScreen(
     onCreatePrivateSanctum: (String) -> Unit,
     onJoinByCode: (String) -> Unit,
     onLaunchCoopRaid: (UserProfile, RaidLobby) -> Unit,
-    onLeaveLobby: () -> Unit
+    onLeaveLobby: () -> Unit,
+    availableWeapons: List<CommunityMod> = GameCatalog.starterWeapons,
+    secondaryWeaponId: String = "starter_soul_lantern",
+    skill1Id: String = "skill1_crimson_cleave",
+    skill2Id: String = "skill2_judgement",
+    language: AppLanguage = AppLanguage.INDONESIAN,
+    onSelectPrimaryWeapon: (String) -> Unit = {},
+    onSelectSecondaryWeapon: (String) -> Unit = {},
+    onSelectSkill1: (String) -> Unit = {},
+    onSelectSkill2: (String) -> Unit = {}
 ) {
     var inviteCodeInput by remember { mutableStateOf("") }
+    var loadoutExpanded by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -140,6 +153,132 @@ fun DescendScreen(
             }
             is UiState.Success -> {
                 val profile = profileState.data
+                val primaryWeapon = availableWeapons.firstOrNull { it.id == profile.equippedWeaponId } ?: availableWeapons.first()
+                val secondaryWeapon = availableWeapons.firstOrNull { it.id == secondaryWeaponId } ?: availableWeapons.getOrElse(1) { availableWeapons.first() }
+                val s1 = GameCatalog.skillById(skill1Id)
+                val s2 = GameCatalog.skillById(skill2Id)
+
+                item {
+                    Surface(
+                        color = CryptSlate,
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, EmberGold.copy(alpha = 0.45f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Icon(Icons.Default.Shield, contentDescription = null, tint = EmberGold, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(strings.combatLoadoutTitle, style = MaterialTheme.typography.titleMedium, color = EmberGold)
+                                }
+                                TextButton(onClick = { loadoutExpanded = !loadoutExpanded }) {
+                                    Text(
+                                        text = if (loadoutExpanded) "▲" else strings.customizeLoadout,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = SpectralTeal
+                                    )
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Surface(
+                                    color = WeatheredBasalt,
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, CarvedStoneBorder),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(strings.primaryWeaponLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(primaryWeapon.name, style = MaterialTheme.typography.labelLarge, color = EmberGold, maxLines = 1)
+                                        Text("Swap: ${secondaryWeapon.name}", style = MaterialTheme.typography.labelSmall, color = SpectralTeal, maxLines = 1)
+                                    }
+                                }
+                                Surface(
+                                    color = WeatheredBasalt,
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = BorderStroke(1.dp, CarvedStoneBorder),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text("${strings.skill1SlotLabel} & Ult", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(if (language == AppLanguage.INDONESIAN) s1.nameId else s1.nameEn, style = MaterialTheme.typography.labelLarge, color = SpectralTeal, maxLines = 1)
+                                        Text(if (language == AppLanguage.INDONESIAN) s2.nameId else s2.nameEn, style = MaterialTheme.typography.labelSmall, color = EmberGold, maxLines = 1)
+                                    }
+                                }
+                            }
+
+                            if (loadoutExpanded) {
+                                Text(strings.primaryWeaponLabel, style = MaterialTheme.typography.labelMedium, color = EmberGold)
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(availableWeapons) { w ->
+                                        FilterChip(
+                                            selected = profile.equippedWeaponId == w.id,
+                                            onClick = { onSelectPrimaryWeapon(w.id) },
+                                            label = { Text(w.name) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = EmberGold,
+                                                selectedLabelColor = AbyssalObsidian
+                                            )
+                                        )
+                                    }
+                                }
+
+                                Text(strings.secondaryWeaponLabel, style = MaterialTheme.typography.labelMedium, color = SpectralTeal)
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(availableWeapons) { w ->
+                                        FilterChip(
+                                            selected = secondaryWeaponId == w.id,
+                                            onClick = { onSelectSecondaryWeapon(w.id) },
+                                            label = { Text(w.name) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = SpectralTeal,
+                                                selectedLabelColor = AbyssalObsidian
+                                            )
+                                        )
+                                    }
+                                }
+
+                                Text(strings.skill1SlotLabel, style = MaterialTheme.typography.labelMedium, color = SpectralTeal)
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(GameCatalog.availableSkill1) { sk ->
+                                        FilterChip(
+                                            selected = skill1Id == sk.id,
+                                            onClick = { onSelectSkill1(sk.id) },
+                                            label = { Text(if (language == AppLanguage.INDONESIAN) sk.nameId else sk.nameEn) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = SpectralTeal,
+                                                selectedLabelColor = AbyssalObsidian
+                                            )
+                                        )
+                                    }
+                                }
+
+                                Text(strings.skill2SlotLabel, style = MaterialTheme.typography.labelMedium, color = EmberGold)
+                                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(GameCatalog.availableSkill2) { sk ->
+                                        FilterChip(
+                                            selected = skill2Id == sk.id,
+                                            onClick = { onSelectSkill2(sk.id) },
+                                            label = { Text(if (language == AppLanguage.INDONESIAN) sk.nameId else sk.nameEn) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = EmberGold,
+                                                selectedLabelColor = AbyssalObsidian
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
                 item {
                     Button(

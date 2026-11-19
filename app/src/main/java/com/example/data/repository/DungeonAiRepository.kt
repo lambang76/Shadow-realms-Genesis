@@ -12,8 +12,6 @@ import com.example.data.model.StageObstacle
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.Schema
-import com.google.firebase.ai.type.ThinkingConfig
-import com.google.firebase.ai.type.ThinkingLevel
 import com.google.firebase.ai.type.generationConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -102,32 +100,29 @@ class DungeonAiRepository {
         )
     )
 
-    private fun buildHighThinkingConfig(schema: Schema) = generationConfig {
+    private fun buildJsonConfig(schema: Schema) = generationConfig {
         responseMimeType = "application/json"
         responseSchema = schema
-        thinkingConfig = ThinkingConfig.Builder()
-            .setThinkingLevel(ThinkingLevel.HIGH)
-            .build()
     }
 
     private val stageModel by lazy {
         Firebase.ai.generativeModel(
-            modelName = MODEL_CARBON,
-            generationConfig = buildHighThinkingConfig(stageSchema)
+            modelName = MODEL_FLASH,
+            generationConfig = buildJsonConfig(stageSchema)
         )
     }
 
     private val narrativeModel by lazy {
         Firebase.ai.generativeModel(
-            modelName = MODEL_CARBON,
-            generationConfig = buildHighThinkingConfig(narrativeSchema)
+            modelName = MODEL_FLASH,
+            generationConfig = buildJsonConfig(narrativeSchema)
         )
     }
 
     private val modReviewModel by lazy {
         Firebase.ai.generativeModel(
-            modelName = MODEL_CARBON,
-            generationConfig = buildHighThinkingConfig(modReviewSchema)
+            modelName = MODEL_FLASH,
+            generationConfig = buildJsonConfig(modReviewSchema)
         )
     }
 
@@ -208,7 +203,7 @@ class DungeonAiRepository {
             )
         } catch (e: TimeoutCancellationException) {
             Log.e(TAG, "Stage generation timed out", e)
-            Result.failure(IllegalStateException("AI stage generation timed out after 60s."))
+            Result.failure(IllegalStateException("AI stage generation timed out after ${AI_TIMEOUT_MS / 1000}s."))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -319,7 +314,7 @@ class DungeonAiRepository {
 
     private companion object {
         const val TAG = "DungeonAiRepo"
-        const val MODEL_CARBON = "gemini-4-carbon"
-        const val AI_TIMEOUT_MS = 60_000L
+        const val MODEL_FLASH = "gemini-3.5-flash-lite"
+        const val AI_TIMEOUT_MS = 35_000L
     }
 }

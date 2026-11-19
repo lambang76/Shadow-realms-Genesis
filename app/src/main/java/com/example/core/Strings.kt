@@ -73,7 +73,16 @@ data class AppStrings(
     val pauseRun: String,
     val resumeRun: String,
     val abandonRun: String,
-    val retryAi: String
+    val retryAi: String,
+    val offlineDescent: String,
+    val combatLoadoutTitle: String,
+    val primaryWeaponLabel: String,
+    val secondaryWeaponLabel: String,
+    val skill1SlotLabel: String,
+    val skill2SlotLabel: String,
+    val swapWeaponBtn: String,
+    val comboLabel: String,
+    val customizeLoadout: String
 )
 
 fun stringsFor(lang: AppLanguage): AppStrings = when (lang) {
@@ -148,7 +157,16 @@ fun stringsFor(lang: AppLanguage): AppStrings = when (lang) {
         pauseRun = "Jeda Pertarungan",
         resumeRun = "Lanjutkan",
         abandonRun = "Kembali ke Sanctum",
-        retryAi = "Coba Panggil Ulang"
+        retryAi = "Coba Panggil Ulang",
+        offlineDescent = "Turun Mode Offline",
+        combatLoadoutTitle = "Persiapan Tempur (Senjata & Skill)",
+        primaryWeaponLabel = "Senjata Utama",
+        secondaryWeaponLabel = "Senjata Cadangan (Swap)",
+        skill1SlotLabel = "Sihir / Skill 1",
+        skill2SlotLabel = "Ultima / Skill 2",
+        swapWeaponBtn = "GANTI",
+        comboLabel = "KOMBO",
+        customizeLoadout = "Pilih Senjata & Skill"
     )
 
     AppLanguage.ENGLISH -> AppStrings(
@@ -222,6 +240,15 @@ fun stringsFor(lang: AppLanguage): AppStrings = when (lang) {
         pauseRun = "Descent Paused",
         resumeRun = "Resume",
         abandonRun = "Abandon to Sanctum",
-        retryAi = "Retry Summoning"
+        retryAi = "Retry Summoning",
+        offlineDescent = "Cryptic Offline Descent",
+        combatLoadoutTitle = "Combat Loadout (Weapons & Skills)",
+        primaryWeaponLabel = "Primary Weapon",
+        secondaryWeaponLabel = "Secondary Weapon (Swap)",
+        skill1SlotLabel = "Arcana / Skill 1",
+        skill2SlotLabel = "Ultima / Skill 2",
+        swapWeaponBtn = "SWAP",
+        comboLabel = "COMBO",
+        customizeLoadout = "Pick Weapons & Skills"
     )
 }

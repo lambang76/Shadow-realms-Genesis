@@ -6,7 +6,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -44,7 +47,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,20 +58,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.core.AppStrings
+import com.example.data.catalog.GameCatalog
+import com.example.data.model.AppLanguage
 import com.example.data.model.BranchingNarrativeEvent
 import com.example.data.model.NarrativeChoice
 import com.example.game.ArenaBounds
@@ -117,7 +121,9 @@ fun SummoningStageScreen(
             modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth()
         ) {
             Column(
-                modifier = Modifier.padding(28.dp),
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (errorMessage == null) {
@@ -145,16 +151,25 @@ fun SummoningStageScreen(
                         imageVector = Icons.Default.Warning,
                         contentDescription = "AI Summoning Error",
                         tint = CrimsonBright,
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(44.dp)
                     )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    Text(
-                        text = errorMessage,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = CrimsonBright,
-                        textAlign = TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                            .background(AbyssalObsidian.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                            .verticalScroll(rememberScrollState())
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = CrimsonBright,
+                            textAlign = TextAlign.Start
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
                     Button(
                         onClick = onRetry,
                         colors = ButtonDefaults.buttonColors(containerColor = EmberGold, contentColor = AbyssalObsidian),
@@ -170,7 +185,14 @@ fun SummoningStageScreen(
                         border = BorderStroke(1.dp, CarvedStoneBorder),
                         modifier = Modifier.fillMaxWidth().height(48.dp).testTag("fallback_stage_button")
                     ) {
-                        Text("Cryptic Descent (Floor #$depth)", color = MaterialTheme.colorScheme.onSurface)
+                        Text("${strings.offlineDescent} (#$depth)", color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    TextButton(
+                        onClick = onCancelToSanctum,
+                        modifier = Modifier.fillMaxWidth().height(48.dp).testTag("cancel_summon_button")
+                    ) {
+                        Text(strings.returnToSanctum, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -354,7 +376,9 @@ fun CombatArenaScreen(
     onEnterPortal: () -> Unit,
     onTogglePause: () -> Unit,
     onAbandon: () -> Unit,
-    onSendPing: (String) -> Unit
+    onSendPing: (String) -> Unit,
+    onSwapWeapon: () -> Unit = {},
+    language: AppLanguage = AppLanguage.INDONESIAN
 ) {
     BackHandler { onTogglePause() }
 
@@ -364,270 +388,41 @@ fun CombatArenaScreen(
     val torchColor = remember(snapshot.stage.torchColorHex) {
         parseSafeColor(snapshot.stage.torchColorHex, EmberGold)
     }
+    val skill1Def = remember(snapshot.skill1Id) { GameCatalog.skillById(snapshot.skill1Id) }
+    val skill2Def = remember(snapshot.skill2Id) { GameCatalog.skillById(snapshot.skill2Id) }
+    val activeBoss = remember(snapshot.enemies) { snapshot.enemies.firstOrNull { it.isBoss } }
+
+    var portalAutoTriggered by remember(snapshot.stage.depth) { mutableStateOf(false) }
+    LaunchedEffect(snapshot.stageCleared, snapshot.playerX, snapshot.playerY) {
+        if (snapshot.stageCleared && !portalAutoTriggered) {
+            if (hypot(snapshot.playerX - 500f, snapshot.playerY - 190f) < 55f) {
+                portalAutoTriggered = true
+                onMoveInput(0f, 0f)
+                onEnterPortal()
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(AbyssalObsidian)
     ) {
-        // 60FPS GOTHIC CANVAS ARENA
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val scale = minOf(size.width, size.height) / ArenaBounds.SIZE
-            val offsetX = (size.width - ArenaBounds.SIZE * scale) * 0.5f
-            val offsetY = (size.height - ArenaBounds.SIZE * scale) * 0.5f
-
-            fun toScreen(vx: Float, vy: Float) = Offset(offsetX + vx * scale, offsetY + vy * scale)
-
-            // Stone chamber floor
-            drawRect(
-                color = ambientColor,
-                topLeft = Offset(offsetX, offsetY),
-                size = Size(ArenaBounds.SIZE * scale, ArenaBounds.SIZE * scale)
-            )
-
-            // Gothic flagstone grid
-            val step = 100f * scale
-            for (i in 0..10) {
-                val p = i * step
-                drawLine(
-                    color = Color(0xFF282436).copy(alpha = 0.45f),
-                    start = Offset(offsetX + p, offsetY),
-                    end = Offset(offsetX + p, offsetY + ArenaBounds.SIZE * scale),
-                    strokeWidth = 1.5f
-                )
-                drawLine(
-                    color = Color(0xFF282436).copy(alpha = 0.45f),
-                    start = Offset(offsetX, offsetY + p),
-                    end = Offset(offsetX + ArenaBounds.SIZE * scale, offsetY + p),
-                    strokeWidth = 1.5f
-                )
-            }
-
-            // Etched ritual sigil in center
-            val center = toScreen(500f, 500f)
-            drawCircle(
-                color = torchColor.copy(alpha = 0.16f),
-                radius = 190f * scale,
-                center = center,
-                style = Stroke(width = 3f)
-            )
-            drawCircle(
-                color = torchColor.copy(alpha = 0.10f),
-                radius = 120f * scale,
-                center = center,
-                style = Stroke(width = 2f)
-            )
-
-            // Dramatic flickering corner torches
-            val flicker = 0.85f + 0.15f * sin(snapshot.elapsedTime * 7.5f)
-            val torchPositions = listOf(
-                Offset(110f, 110f), Offset(890f, 110f),
-                Offset(110f, 890f), Offset(890f, 890f)
-            )
-            torchPositions.forEach { tp ->
-                val sp = toScreen(tp.x, tp.y)
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(torchColor.copy(alpha = 0.34f * flicker), Color.Transparent),
-                        center = sp,
-                        radius = 220f * scale * flicker
-                    ),
-                    radius = 220f * scale * flicker,
-                    center = sp
-                )
-                drawCircle(color = torchColor, radius = 7f * scale, center = sp)
-            }
-
-            // Obstacles with directional shadow wedges
-            snapshot.stage.obstacles.forEach { obs ->
-                val ox = obs.xRatio * ArenaBounds.SIZE
-                val oy = obs.yRatio * ArenaBounds.SIZE
-                val sp = toScreen(ox, oy)
-                val r = obs.radius * scale
-                drawCircle(
-                    color = Color.Black.copy(alpha = 0.55f),
-                    radius = r * 1.18f,
-                    center = Offset(sp.x + 8f * scale, sp.y + 10f * scale)
-                )
-                drawCircle(color = Color(0xFF2B2638), radius = r, center = sp)
-                drawCircle(
-                    color = if (obs.kind == "ALTAR") SpectralTeal.copy(alpha = 0.65f) else EmberGold.copy(alpha = 0.35f),
-                    radius = r * 0.82f,
-                    center = sp,
-                    style = Stroke(width = 2.5f)
-                )
-            }
-
-            // Descent Portal when chamber is cleared
-            if (snapshot.stageCleared) {
-                val portalCenter = toScreen(500f, 190f)
-                val pulse = 44f + 6f * sin(snapshot.elapsedTime * 4f)
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(SpectralTeal.copy(alpha = 0.85f), Color.Transparent),
-                        center = portalCenter,
-                        radius = pulse * 1.9f * scale
-                    ),
-                    radius = pulse * 1.9f * scale,
-                    center = portalCenter
-                )
-                drawCircle(
-                    color = SpectralTeal,
-                    radius = pulse * scale,
-                    center = portalCenter,
-                    style = Stroke(width = 4f)
-                )
-            }
-
-            // Soul Orb pickups
-            snapshot.soulOrbs.forEach { orb ->
-                val sp = toScreen(orb.x, orb.y)
-                drawCircle(color = SpectralTeal.copy(alpha = 0.35f), radius = 16f * scale, center = sp)
-                drawCircle(color = SpectralTeal, radius = 7f * scale, center = sp)
-            }
-
-            // Slash Arcs
-            snapshot.slashes.forEach { s ->
-                val sp = toScreen(s.x, s.y)
-                val c = parseSafeColor(s.colorHex, EmberGold)
-                val alpha = (s.ttl / s.maxTtl).coerceIn(0f, 1f)
-                val sweepDeg = 110f
-                val startDeg = Math.toDegrees(s.angle.toDouble()).toFloat() - sweepDeg / 2f
-                drawArc(
-                    color = c.copy(alpha = alpha * 0.85f),
-                    startAngle = startDeg,
-                    sweepAngle = sweepDeg,
-                    useCenter = false,
-                    topLeft = Offset(sp.x - s.radius * scale, sp.y - s.radius * scale),
-                    size = Size(s.radius * 2f * scale, s.radius * 2f * scale),
-                    style = Stroke(width = 14f * scale, cap = StrokeCap.Round)
-                )
-            }
-
-            // Enemies + Telegraphs + HP Bars
-            snapshot.enemies.forEach { en ->
-                val sp = toScreen(en.x, en.y)
-                val r = en.radius * scale
-                val eColor = if (en.hitFlashTimer > 0f) Color.White else parseSafeColor(en.tintHex, CrimsonBlood)
-
-                if (en.telegraphTimer > 0f) {
-                    drawCircle(
-                        color = CrimsonBright.copy(alpha = 0.35f),
-                        radius = r * 2.1f,
-                        center = sp,
-                        style = Stroke(width = 3f)
-                    )
+        // 60FPS DETAILED 2.5D HUMANOID & GOTHIC CANVAS ARENA
+        Canvas(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    if (snapshot.screenShake > 0.2f) {
+                        translationX = sin(snapshot.elapsedTime * 72f) * snapshot.screenShake * 1.4f
+                        translationY = cos(snapshot.elapsedTime * 61f) * snapshot.screenShake * 1.1f
+                    }
                 }
-                drawCircle(color = eColor, radius = r, center = sp)
-                drawCircle(
-                    color = Color.Black.copy(alpha = 0.6f),
-                    radius = r,
-                    center = sp,
-                    style = Stroke(width = 2.5f)
-                )
-
-                // Enemy HP bar
-                val barW = r * 2.2f
-                val hpPct = (en.hp.toFloat() / en.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f)
-                drawRect(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    topLeft = Offset(sp.x - barW / 2f, sp.y - r - 12f * scale),
-                    size = Size(barW, 5f * scale)
-                )
-                drawRect(
-                    color = if (en.isBoss) EmberGold else CrimsonBright,
-                    topLeft = Offset(sp.x - barW / 2f, sp.y - r - 12f * scale),
-                    size = Size(barW * hpPct, 5f * scale)
-                )
-            }
-
-            // Remote Co-op Allies
-            snapshot.remoteAllies.forEach { ally ->
-                val sp = toScreen(ally.posX.toFloat(), ally.posY.toFloat())
-                drawCircle(color = SpectralTeal.copy(alpha = 0.30f), radius = 34f * scale, center = sp)
-                drawCircle(color = SpectralTeal, radius = 19f * scale, center = sp)
-                drawContext.canvas.nativeCanvas.drawText(
-                    ally.displayName.take(10),
-                    sp.x,
-                    sp.y - 28f * scale,
-                    android.graphics.Paint().apply {
-                        color = android.graphics.Color.WHITE
-                        textSize = 24f * scale
-                        textAlign = android.graphics.Paint.Align.CENTER
-                    }
-                )
-            }
-
-            // Projectiles
-            snapshot.projectiles.forEach { p ->
-                val sp = toScreen(p.x, p.y)
-                val c = parseSafeColor(p.colorHex, SpectralTeal)
-                drawCircle(color = c.copy(alpha = 0.35f), radius = p.radius * 1.8f * scale, center = sp)
-                drawCircle(color = c, radius = p.radius * scale, center = sp)
-            }
-
-            // Player Hero + Lantern Aura
-            val pCenter = toScreen(snapshot.playerX, snapshot.playerY)
-            val lanternRadius = 290f * scale * snapshot.fogRadiusMultiplier
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(EmberGold.copy(alpha = 0.22f), Color.Transparent),
-                    center = pCenter,
-                    radius = lanternRadius
-                ),
-                radius = lanternRadius,
-                center = pCenter
-            )
-
-            val heroColor = when {
-                snapshot.hitFlashTimer > 0f -> CrimsonBright
-                snapshot.invulnTimer > 0f -> Color.White.copy(alpha = 0.7f)
-                else -> parseSafeColor(snapshot.weaponAccentHex, EmberGold)
-            }
-            drawCircle(color = heroColor, radius = 21f * scale, center = pCenter)
-            // Facing indicator tip
-            val tip = Offset(
-                pCenter.x + cos(snapshot.facingAngle) * 28f * scale,
-                pCenter.y + sin(snapshot.facingAngle) * 28f * scale
-            )
-            drawLine(color = EmberGold, start = pCenter, end = tip, strokeWidth = 5f * scale, cap = StrokeCap.Round)
-
-            // Floating ash particles
-            snapshot.particles.forEach { pt ->
-                val sp = toScreen(pt.x, pt.y)
-                drawCircle(
-                    color = EmberGold.copy(alpha = pt.alpha),
-                    radius = pt.size * scale,
-                    center = sp
-                )
-            }
-
-            // Floating Damage / Heal Numbers
-            snapshot.floatingNumbers.forEach { fn ->
-                val sp = toScreen(fn.x, fn.y)
-                drawContext.canvas.nativeCanvas.drawText(
-                    fn.text,
-                    sp.x,
-                    sp.y,
-                    android.graphics.Paint().apply {
-                        color = try {
-                            android.graphics.Color.parseColor(fn.colorHex)
-                        } catch (_: Exception) {
-                            android.graphics.Color.WHITE
-                        }
-                        textSize = 30f * scale
-                        isFakeBoldText = true
-                        textAlign = android.graphics.Paint.Align.CENTER
-                    }
-                )
-            }
-
-            // Arena stone wall frame
-            drawRect(
-                color = CarvedStoneBorder,
-                topLeft = Offset(offsetX, offsetY),
-                size = Size(ArenaBounds.SIZE * scale, ArenaBounds.SIZE * scale),
-                style = Stroke(width = 6f)
+        ) {
+            renderDetailedArena(
+                snapshot = snapshot,
+                ambientColor = ambientColor,
+                torchColor = torchColor
             )
         }
 
@@ -686,17 +481,53 @@ fun CombatArenaScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     ) {
-                        Text(
-                            text = "+${snapshot.soulEarnedThisRun}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = SpectralTeal
-                        )
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "+${snapshot.soulEarnedThisRun}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = SpectralTeal
+                            )
+                            if (snapshot.comboCount >= 2) {
+                                Text(
+                                    text = "${snapshot.comboCount}x ${strings.comboLabel}",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = EmberGold
+                                )
+                            }
+                        }
                         IconButton(
                             onClick = onTogglePause,
                             modifier = Modifier.size(48.dp).testTag("pause_combat_button")
                         ) {
                             Icon(Icons.Default.Pause, contentDescription = strings.pauseRun, tint = EmberGold)
                         }
+                    }
+                }
+            }
+
+            if (activeBoss != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = CryptSlate.copy(alpha = 0.90f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, CrimsonBright.copy(alpha = 0.7f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(activeBoss.name, style = MaterialTheme.typography.labelMedium, color = CrimsonBright)
+                            Text("${activeBoss.hp}/${activeBoss.maxHp}", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = { (activeBoss.hp.toFloat() / activeBoss.maxHp.coerceAtLeast(1)).coerceIn(0f, 1f) },
+                            color = EmberGold,
+                            trackColor = AbyssalObsidian,
+                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+                        )
                     }
                 }
             }
@@ -734,7 +565,7 @@ fun CombatArenaScreen(
             }
         }
 
-        // BOTTOM CONTROLS: LEFT VIRTUAL STICK + RIGHT ACTION CLUSTER
+        // BOTTOM CONTROLS: LEFT VIRTUAL STICK + RIGHT WEAPON SWAP & SKILL/ACTION CLUSTER
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -750,20 +581,45 @@ fun CombatArenaScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (snapshot.secondaryWeaponName != null) {
+                    val weaponColor = parseSafeColor(snapshot.weaponAccentHex, EmberGold)
+                    Surface(
+                        color = CryptSlate.copy(alpha = 0.90f),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, weaponColor),
+                        modifier = Modifier
+                            .clickable(onClick = onSwapWeapon)
+                            .testTag("swap_weapon_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        ) {
+                            Icon(Icons.Default.Bolt, contentDescription = strings.swapWeaponBtn, tint = weaponColor, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${snapshot.weaponName.take(14)} • ${strings.swapWeaponBtn}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     TacticalActionButton(
-                        label = strings.skill1Btn,
+                        label = (if (language == AppLanguage.INDONESIAN) skill1Def.nameId else skill1Def.nameEn).take(8),
                         cooldown = snapshot.skill1Cooldown,
-                        accent = SpectralTeal,
-                        sizeDp = 58,
+                        accent = parseSafeColor(skill1Def.accentHex, SpectralTeal),
+                        sizeDp = 62,
                         tag = "skill_1_button",
                         onClick = onSkill1
                     )
                     TacticalActionButton(
-                        label = strings.skill2Btn,
+                        label = (if (language == AppLanguage.INDONESIAN) skill2Def.nameId else skill2Def.nameEn).take(8),
                         cooldown = snapshot.skill2Cooldown,
-                        accent = EmberGold,
-                        sizeDp = 58,
+                        accent = parseSafeColor(skill2Def.accentHex, EmberGold),
+                        sizeDp = 62,
                         tag = "skill_2_button",
                         onClick = onSkill2
                     )
@@ -784,7 +640,7 @@ fun CombatArenaScreen(
                         label = strings.attackBtn,
                         cooldown = 0f,
                         accent = CrimsonBright,
-                        sizeDp = 76,
+                        sizeDp = 78,
                         tag = "attack_button",
                         onClick = onAttack
                     )
@@ -846,26 +702,30 @@ private fun VirtualJoystick(onMoveInput: (Float, Float) -> Unit) {
             .background(CryptSlate.copy(alpha = 0.55f))
             .border(1.5.dp, EmberGold.copy(alpha = 0.45f), CircleShape)
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragEnd = {
-                        knobOffset = Offset.Zero
-                        onMoveInput(0f, 0f)
-                    },
-                    onDragCancel = {
-                        knobOffset = Offset.Zero
-                        onMoveInput(0f, 0f)
+                val center = Offset(size.width / 2f, size.height / 2f)
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    val updateFromPos: (Offset) -> Unit = { pos ->
+                        val delta = pos - center
+                        val dist = hypot(delta.x, delta.y)
+                        val clamped = if (dist > maxRadiusPx) {
+                            Offset(delta.x / dist * maxRadiusPx, delta.y / dist * maxRadiusPx)
+                        } else {
+                            delta
+                        }
+                        knobOffset = clamped
+                        onMoveInput(clamped.x / maxRadiusPx, clamped.y / maxRadiusPx)
                     }
-                ) { change, dragAmount ->
-                    change.consume()
-                    val candidate = knobOffset + dragAmount
-                    val dist = hypot(candidate.x, candidate.y)
-                    val clamped = if (dist > maxRadiusPx) {
-                        Offset(candidate.x / dist * maxRadiusPx, candidate.y / dist * maxRadiusPx)
-                    } else {
-                        candidate
+                    updateFromPos(down.position)
+                    drag(down.id) { change ->
+                        change.consume()
+                        if (change.positionChange() != Offset.Zero) {
+                            updateFromPos(change.position)
+                        }
                     }
-                    knobOffset = clamped
-                    onMoveInput(clamped.x / maxRadiusPx, clamped.y / maxRadiusPx)
+                    knobOffset = Offset.Zero
+                    onMoveInput(0f, 0f)
                 }
             }
             .testTag("virtual_joystick"),

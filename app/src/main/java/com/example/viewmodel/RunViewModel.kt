@@ -61,7 +61,10 @@ class RunViewModel(
 
     private var activeProfile: UserProfile? = null
     private var activeWeapon: CommunityMod? = null
+    private var activeSecondaryWeapon: CommunityMod? = null
     private var activeRelic: CommunityMod? = null
+    private var activeSkill1Id: String = "skill1_crimson_cleave"
+    private var activeSkill2Id: String = "skill2_judgement"
     private var activeRulesets: List<CommunityMod> = emptyList()
     private var activeLanguage: AppLanguage = AppLanguage.INDONESIAN
     private var currentLobby: RaidLobby? = null
@@ -81,11 +84,17 @@ class RunViewModel(
         equippedRelic: CommunityMod?,
         activeRulesets: List<CommunityMod>,
         language: AppLanguage,
-        coopLobby: RaidLobby?
+        coopLobby: RaidLobby?,
+        secondaryWeapon: CommunityMod? = null,
+        skill1Id: String = "skill1_crimson_cleave",
+        skill2Id: String = "skill2_judgement"
     ) {
         activeProfile = profile
         activeWeapon = equippedWeapon
+        activeSecondaryWeapon = secondaryWeapon
         activeRelic = equippedRelic
+        activeSkill1Id = skill1Id
+        activeSkill2Id = skill2Id
         this.activeRulesets = activeRulesets
         activeLanguage = language
         currentLobby = coopLobby
@@ -168,7 +177,10 @@ class RunViewModel(
             currentHpOverride = carryOverHp,
             onSlashSfx = { audioEngine.playSlashSfx() },
             onDashSfx = { audioEngine.playDashSfx() },
-            onHitSfx = { audioEngine.playHitSfx() }
+            onHitSfx = { audioEngine.playHitSfx() },
+            secondaryWeapon = activeSecondaryWeapon,
+            skill1Id = activeSkill1Id,
+            skill2Id = activeSkill2Id
         )
         simulation = sim
         val hasBoss = stage.enemies.any { it.behavior == "BOSS_WARDEN" }
@@ -275,6 +287,7 @@ class RunViewModel(
     }
 
     fun onEnterPortal() {
+        if (_phase.value !is RunPhase.InCombat) return
         val sim = simulation ?: return
         val snap = sim.snapshot()
         if (!snap.stageCleared) return
@@ -386,6 +399,7 @@ class RunViewModel(
     fun onDashPressed() = simulation?.triggerDash()
     fun onSkill1Pressed() = simulation?.triggerSkill1()
     fun onSkill2Pressed() = simulation?.triggerSkill2()
+    fun onSwapWeaponPressed() = simulation?.triggerWeaponSwap()
 
     fun sendCoopPing(pingText: String) {
         val lobby = currentLobby ?: return
